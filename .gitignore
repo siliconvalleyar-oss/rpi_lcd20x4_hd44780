@@ -1,0 +1,15 @@
+# Compiled objects
+*.o
+obj/
+
+# Binary output
+bin/
+
+# Editor temp files
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db

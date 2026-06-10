@@ -1,0 +1,162 @@
+//==============================================================================
+// lcd_20x4.cpp - Controla un LCD HD44780 (20x4) en modo 4 bits con bcm2835
+// Conexiones:
+//   RS   -> GPIO 13
+//   EN   -> GPIO 6
+//   R/W  -> GND
+//   DB4  -> GPIO 26
+//   DB5  -> GPIO 19
+//   DB6  -> GPIO 20
+//   DB7  -> GPIO 21
+//   Backlight: Anodo a +5V con resistencia, Catodo a GND
+//==============================================================================
+
+#include <bcm2835.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <string.h>
+
+//==============================================================================
+// Definición de pines GPIO (usando números BCM directos)
+//==============================================================================
+#define PIN_RS  13   // GPIO 13 (pin físico 33)
+#define PIN_EN  6    // GPIO 6  (pin físico 31)
+
+#define PIN_D4  26   // GPIO 26 (pin físico 37)
+#define PIN_D5  19   // GPIO 19 (pin físico 35)
+#define PIN_D6  20   // GPIO 20 (pin físico 38)
+#define PIN_D7  21   // GPIO 21 (pin físico 40)
+
+//==============================================================================
+// Prototipos de funciones
+//==============================================================================
+void lcd_init(void);
+void lcd_command(uint8_t cmd);
+void lcd_data(uint8_t data);
+void lcd_write_string(const char *str);
+void lcd_set_cursor(uint8_t row, uint8_t col);
+void lcd_enable_pulse(void);
+void lcd_send_nibble(uint8_t nibble);
+void lcd_send_byte(uint8_t byte);
+
+//==============================================================================
+// Función principal
+//==============================================================================
+int main() {
+    if (!bcm2835_init()) {
+        printf("Error: No se pudo inicializar bcm2835. Ejecuta con 'sudo'.\n");
+        return 1;
+    }
+
+    // Configurar pines de control y datos como salida
+    bcm2835_gpio_fsel(PIN_RS, BCM2835_GPIO_FSEL_OUTP);
+    bcm2835_gpio_fsel(PIN_EN, BCM2835_GPIO_FSEL_OUTP);
+    bcm2835_gpio_fsel(PIN_D4, BCM2835_GPIO_FSEL_OUTP);
+    bcm2835_gpio_fsel(PIN_D5, BCM2835_GPIO_FSEL_OUTP);
+    bcm2835_gpio_fsel(PIN_D6, BCM2835_GPIO_FSEL_OUTP);
+    bcm2835_gpio_fsel(PIN_D7, BCM2835_GPIO_FSEL_OUTP);
+
+    // Estado inicial de pines
+    bcm2835_gpio_write(PIN_RS, LOW);
+    bcm2835_gpio_write(PIN_EN, LOW);
+    bcm2835_gpio_write(PIN_D4, LOW);
+    bcm2835_gpio_write(PIN_D5, LOW);
+    bcm2835_gpio_write(PIN_D6, LOW);
+    bcm2835_gpio_write(PIN_D7, LOW);
+
+    lcd_init();  // Inicializar LCD
+
+    // Mostrar mensajes en las 4 líneas
+    lcd_set_cursor(0, 0);
+    lcd_write_string("Hola, LCD 20x4!");
+    lcd_set_cursor(1, 0);
+    lcd_write_string("Modo 4 bits");
+    lcd_set_cursor(2, 0);
+    lcd_write_string("RS=GPIO13, EN=GPIO6");
+    lcd_set_cursor(3, 0);
+    lcd_write_string("DB4-DB7 en GPIO26-21");
+
+    printf("Mensaje enviado al LCD. Presiona Ctrl+C para salir.\n");
+    while (1) {
+        sleep(1);
+    }
+
+    bcm2835_close();
+    return 0;
+}
+
+//==============================================================================
+// Funciones del LCD
+//==============================================================================
+
+// Genera un pulso en el pin de Enable (E)
+void lcd_enable_pulse() {
+    bcm2835_gpio_write(PIN_EN, HIGH);
+    bcm2835_delayMicroseconds(1);
+    bcm2835_gpio_write(PIN_EN, LOW);
+    bcm2835_delayMicroseconds(50);  // Tiempo de espera para que el LCD procese
+}
+
+// Envía un nibble (4 bits) al LCD a través de los pines DB4-DB7
+void lcd_send_nibble(uint8_t nibble) {
+    bcm2835_gpio_write(PIN_D4, (nibble >> 0) & 1);
+    bcm2835_gpio_write(PIN_D5, (nibble >> 1) & 1);
+    bcm2835_gpio_write(PIN_D6, (nibble >> 2) & 1);
+    bcm2835_gpio_write(PIN_D7, (nibble >> 3) & 1);
+    lcd_enable_pulse();
+}
+
+// Envía un byte completo al LCD (dos nibbles: el alto primero, luego el bajo)
+void lcd_send_byte(uint8_t byte) {
+    lcd_send_nibble(byte >> 4);   // Enviar nibble alto (bits 7-4)
+    lcd_send_nibble(byte & 0x0F); // Enviar nibble bajo (bits 3-0)
+}
+
+// Envía un comando al LCD (RS en LOW)
+void lcd_command(uint8_t cmd) {
+    bcm2835_gpio_write(PIN_RS, LOW);  // Modo comando
+    lcd_send_byte(cmd);
+    bcm2835_delayMicroseconds(100);
+}
+
+// Envía un dato (carácter) al LCD (RS en HIGH)
+void lcd_data(uint8_t data) {
+    bcm2835_gpio_write(PIN_RS, HIGH); // Modo dato
+    lcd_send_byte(data);
+    bcm2835_delayMicroseconds(50);
+}
+
+// Escribe una cadena de texto en la posición actual del cursor
+void lcd_write_string(const char *str) {
+    while (*str) {
+        lcd_data((uint8_t)*str++);
+    }
+}
+
+// Posiciona el cursor en una fila (0-3) y columna (0-19) específica
+void lcd_set_cursor(uint8_t row, uint8_t col) {
+    uint8_t row_offsets[] = {0x00, 0x40, 0x14, 0x54}; // Para un LCD 20x4
+    lcd_command(0x80 | (col + row_offsets[row]));
+}
+
+// Secuencia de inicialización del LCD en modo 4 bits
+void lcd_init() {
+    bcm2835_delay(50);               // Esperar a que el LCD se estabilice tras encender
+
+    // Configuración inicial en 8 bits (necesaria para cambiar a modo 4 bits)
+    bcm2835_gpio_write(PIN_RS, LOW);
+    lcd_send_nibble(0x03);
+    bcm2835_delay(5);
+    lcd_send_nibble(0x03);
+    bcm2835_delay(1);
+    lcd_send_nibble(0x03);
+    lcd_send_nibble(0x02);           // Enviar comando para cambiar a modo 4 bits
+
+    // Ahora sí, configurar el LCD en modo 4 bits, 2 líneas, matriz 5x8
+    lcd_command(0x28);               // Function Set: 4 bits, 2 líneas, 5x8 puntos
+    lcd_command(0x08);               // Display Off
+    lcd_command(0x01);               // Clear Display
+    bcm2835_delay(2);
+    lcd_command(0x06);               // Entry Mode: Incrementar cursor, sin desplazar
+    lcd_command(0x0C);               // Display On, Cursor Off, Blink Off
+}

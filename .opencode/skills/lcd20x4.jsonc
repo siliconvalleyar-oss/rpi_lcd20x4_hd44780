@@ -1,0 +1,97 @@
+{
+    "name": "lcd20x4-hd44780",
+    "description": "Develop, build, and run HD44780 LCD projects on Raspberry Pi using GPIO 4-bit mode with libbcm2835.",
+    "commands": {
+        "build": {
+            "description": "Build the LCD application (default: clock mode)",
+            "command": "make"
+        },
+        "build-bitcoin": {
+            "description": "Build with Bitcoin ticker support",
+            "command": "make BITCOIN=1"
+        },
+        "build-menu": {
+            "description": "Build with interactive menu mode",
+            "command": "make MENU=1"
+        },
+        "clean": {
+            "description": "Clean build artifacts",
+            "command": "make clean"
+        },
+        "run-clock": {
+            "description": "Run clock mode (hostname, IP, date, time)",
+            "command": "sudo ./bin/lcd_app --clock"
+        },
+        "run-info": {
+            "description": "Run system info mode (CPU, temp, memory, IP)",
+            "command": "sudo ./bin/lcd_app --info"
+        },
+        "run-bitcoin": {
+            "description": "Run Bitcoin ticker mode",
+            "command": "sudo ./bin/lcd_app --bitcoin"
+        },
+        "run-chars": {
+            "description": "Run custom characters demo",
+            "command": "sudo ./bin/lcd_app --chars"
+        },
+        "run-progress": {
+            "description": "Run progress bar demo",
+            "command": "sudo ./bin/lcd_app --progress"
+        },
+        "run-all": {
+            "description": "Run all modes sequentially",
+            "command": "sudo ./bin/lcd_app --all"
+        },
+        "run-menu": {
+            "description": "Run interactive menu (requires buttons on GPIO 17/22/27)",
+            "command": "sudo ./bin/lcd_app --menu"
+        },
+        "remote-build": {
+            "description": "SSH to Pi and compile remotely",
+            "command": "make remote-build PI_HOST=pi@raspberry.local"
+        },
+        "remote-run": {
+            "description": "SSH to Pi, build, and run",
+            "command": "make remote-run PI_HOST=pi@raspberry.local"
+        },
+        "install-deps": {
+            "description": "Install libbcm2835 and build tools",
+            "command": "bash script_tools/install_deps.sh"
+        },
+        "help": {
+            "description": "Show Makefile help",
+            "command": "make help"
+        }
+    },
+    "hardware": {
+        "display": {
+            "controller": "HD44780",
+            "sizes": "16x02, 20x04",
+            "interface": "4-bit parallel GPIO"
+        },
+        "gpio": {
+            "library": "libbcm2835",
+            "lcd_pins": {
+                "RS": 13,
+                "EN": 6,
+                "D4": 26,
+                "D5": 19,
+                "D6": 20,
+                "D7": 21
+            },
+            "menu_button_pins": {
+                "UP": 17,
+                "DOWN": 22,
+                "OK": 27
+            }
+        }
+    },
+    "files": {
+        "library_header": "include/HD44780.hpp",
+        "library_source": "src/HD44780.cpp",
+        "main_source": "src/main.cpp",
+        "makefile": "Makefile",
+        "deps_script": "script_tools/install_deps.sh",
+        "originals": "trash/"
+    }
+}
