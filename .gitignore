@@ -13,3 +13,6 @@ bin/
 # OS files
 .DS_Store
 Thumbs.db
+
+bash.sh
+
